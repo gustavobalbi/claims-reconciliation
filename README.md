@@ -38,15 +38,22 @@ pytest -q                             # 48 tests, ~15 s (includes a 300k-claim s
 5. **Flag a match.** Precedence: `DATA_ISSUE` > no match > `OUT_OF_PERIOD` > `PARTIAL_PAYMENT` > amount.
    - Invoice date outside 2025-01-01 to 2025-12-31 (inclusive): `OUT_OF_PERIOD`. Judged on the invoice date, not the claim date.
    - Invoice paid more than $1.00 short (e.g. $1,000 invoiced, $600 paid): `PARTIAL_PAYMENT`. The short payment may already be the deduction, so claiming it again would be a double deduction; a person checks.
-   - Otherwise compare the claimed amount with **`paid_amount`**. An invoice with `paid_amount` blank **or 0.00** is treated as unpaid and compared with `invoice_amount`. More than $1.00 above: `AMOUNT_OVERSTATED`. More than $1.00 below: `AMOUNT_MISMATCH`. Else `CLEAN_MATCH`.
+   - Otherwise compare the claimed amount with **`invoice_amount`**, as the case specifies. More than $1.00 above: `AMOUNT_OVERSTATED`. More than $1.00 below: `AMOUNT_MISMATCH`. Else `CLEAN_MATCH`.
    - When several claims land on the same invoice, their **sum** is tested against it.
    - The next problem in line is kept in `secondary_flag` (e.g. an out-of-period claim that is also overstated).
 6. **Recommendation and money split** (`concede + dispute + review = claimed` on every row):
-   - `CLEAN_MATCH`: concede the lower of claim and payment (cents above it are disputed).
-   - `AMOUNT_OVERSTATED`, single claim: concede up to the payment, dispute the excess.
+   - The amount conceded is **capped at what Northgate actually received** (`paid_amount`; the invoice amount if `paid_amount` is blank or 0.00, i.e. unpaid). This does not change any flag, only the money split.
+   - `CLEAN_MATCH`: concede the lower of the claim and that cap (cents above it are disputed).
+   - `AMOUNT_OVERSTATED`, single claim: concede up to the cap, dispute the excess.
    - Human review: `DATA_ISSUE`, `PARTIAL_PAYMENT`, `AMOUNT_MISMATCH`, `REFERENCE_CONFLICT`, and `AMOUNT_OVERSTATED` from summed claims.
    - `OUT_OF_PERIOD`, `AMBIGUOUS_NO_MATCH`, `PHANTOM`: dispute in full.
    - Only missing **columns** stop the run (the file itself is broken). An empty claims file produces an empty register.
+
+## Relation to the brief
+
+- The five flags defined in the case (`CLEAN_MATCH`, `OUT_OF_PERIOD`, `AMBIGUOUS_NO_MATCH`, `AMOUNT_OVERSTATED`, `PHANTOM`) follow the stated rules exactly: audit window on invoice date, ID canonicalisation, invoice first then PO only when unique, never resolved by amount, $1.00 tolerance on the invoice amount.
+- Four extra flags (`AMOUNT_MISMATCH`, `REFERENCE_CONFLICT`, `PARTIAL_PAYMENT`, `DATA_ISSUE`) are a safety layer for production data. They only route a claim to human review when the stated rules cannot decide it safely; they never turn a claim the case rules would dispute into a concession. **None of them fires on the case data**, so the register uses only the five case flags.
+- Additions beyond the brief, all documented in `AI_LOG.md`: PO normalisation (same spirit as the invoice rule, so `PO5501` is not a false miss), OCR correction confirmed by PO, summing several claims on one invoice, the cap on the conceded amount, and the recommendation and money split columns.
 
 ## Scale
 

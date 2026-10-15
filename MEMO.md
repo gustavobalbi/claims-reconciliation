@@ -2,7 +2,7 @@
 
 **To:** Northgate Outdoor Supply, Accounts Receivable
 **Re:** Reconciliation of 8 Fernhill deduction claims ($6,357.65) against Northgate's own invoice ledger
-**Basis:** Only Northgate's ledger counts as evidence. A claim that the ledger cannot confirm is not given the benefit of the doubt. Amounts are compared with what Northgate was actually paid, within a $1.00 tolerance.
+**Basis:** Only Northgate's ledger counts as evidence. A claim that the ledger cannot confirm is not given the benefit of the doubt. A claim matches when it is within $1.00 of the invoice amount, and Northgate never concedes more than it was actually paid.
 
 ## Bottom line
 
@@ -12,8 +12,8 @@ Of $6,357.65 claimed, Northgate should **concede $4,004.87** and **dispute $2,35
 
 | Flag | Meaning | Claims | Claimed | Concede | Dispute |
 |---|---|---:|---:|---:|---:|
-| CLEAN_MATCH | Real 2025 invoice, amount within $1.00 of payment | 4 | $3,624.90 | $3,624.87 | $0.03 |
-| AMOUNT_OVERSTATED | Real invoice, claim exceeds payment by more than $1.00 | 1 | $412.00 | $380.00 | $32.00 |
+| CLEAN_MATCH | Real 2025 invoice, amount within $1.00 of the invoice | 4 | $3,624.90 | $3,624.87 | $0.03 |
+| AMOUNT_OVERSTATED | Real invoice, claim exceeds the invoice by more than $1.00 | 1 | $412.00 | $380.00 | $32.00 |
 | OUT_OF_PERIOD | Real invoice, dated outside 1 Jan to 31 Dec 2025 | 1 | $875.00 | | $875.00 |
 | AMBIGUOUS_NO_MATCH | PO covers more than one invoice; cannot tell which | 1 | $915.75 | | $915.75 |
 | PHANTOM | Neither invoice nor PO exists in our ledger | 1 | $530.00 | | $530.00 |
@@ -34,7 +34,7 @@ Of $6,357.65 claimed, Northgate should **concede $4,004.87** and **dispute $2,35
 **Concede**
 
 - **CLM-4402, $642.50.** Fernhill wrote "88217" for our "0088217"; same invoice, formatting difference only.
-- **CLM-4405, concede $299.97.** Fernhill claims $300.00; we were paid $299.97. The 3 cents are within tolerance, but we concede what the ledger shows, not what the claim says.
+- **CLM-4405, concede $299.97.** Fernhill claims $300.00 against a $299.99 invoice, which is within tolerance. But Northgate was only paid $299.97, so that is the most it should give back.
 - **CLM-4401 ($1,180.00) and CLM-4408 ($1,502.40), after proof of delivery.** Both claim the *entire* invoice was short shipped, and in both cases Fernhill had already paid the invoice in full before filing the claim. The reconciliation proves the invoices exist, not that the shortages happened. Requesting proof of delivery for both before paying is cheap insurance.
 - **CLM-4408** also arrived with a garbled invoice number ("INV-1O6OO", letters instead of zeros). Read as digits it is INV-10600, and the claim's PO-5530 and amount both confirm it. Ask Fernhill to correct the reference on their side.
 

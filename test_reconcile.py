@@ -61,7 +61,7 @@ def test_full_register(register):
         "CLM-4402": ("0088217", CLEAN_MATCH, "", "invoice"),          # leading zeros
         "CLM-4403": ("INV-10501", AMOUNT_OVERSTATED, "", "invoice"),  # +$32
         "CLM-4404": ("", AMBIGUOUS_NO_MATCH, "", "po"),
-        "CLM-4405": ("INV-10611", CLEAN_MATCH, "", "invoice"),        # +$0.03 vs paid
+        "CLM-4405": ("INV-10611", CLEAN_MATCH, "", "invoice"),        # +$0.01 vs invoice (concession capped at $299.97 paid)
         "CLM-4406": ("INV-09988", OUT_OF_PERIOD, "", "invoice"),      # 2024 invoice
         "CLM-4407": ("", PHANTOM, "", "none"),
         "CLM-4408": ("INV-10600", CLEAN_MATCH, "", "invoice_ocr"),    # O->0, PO confirms
@@ -102,12 +102,16 @@ def test_ocr_correction_rejected_when_po_disagrees(tmp_path):
     assert "not confirmed by PO" in reg.loc["T-1", "note"]
 
 
-def test_tolerance_is_against_paid_amount(tmp_path):
-    """$101 vs invoice $100 would be clean; vs the $99.50 actually paid it is $1.50 over."""
+def test_tolerance_is_against_invoice_amount_and_concession_capped_at_paid(tmp_path):
+    """Case rule: within $1.00 of the INVOICE amount. $101 vs $100 invoiced is clean,
+    even though only $99.50 was paid; but no more than the $99.50 is conceded."""
     reg = run(tmp_path,
-              "T-1,INV-1,PO-1,2025-07-01,101.00,X\n",
-              "INV-1,PO-1,2025-06-01,100.00,99.50,2025-06-10\n")
-    assert reg.loc["T-1", "status_flag"] == AMOUNT_OVERSTATED
+              "T-1,INV-1,PO-1,2025-07-01,101.00,X\nT-2,INV-2,PO-2,2025-07-01,101.01,X\n",
+              "INV-1,PO-1,2025-06-01,100.00,99.50,2025-06-10\n"
+              "INV-2,PO-2,2025-06-01,100.00,100.00,2025-06-10\n")
+    assert reg.loc["T-1", "status_flag"] == CLEAN_MATCH
+    assert reg.loc["T-1", "concede_c"] == 9950 and reg.loc["T-1", "dispute_c"] == 150
+    assert reg.loc["T-2", "status_flag"] == AMOUNT_OVERSTATED      # $1.01 over the invoice
 
 
 def test_unpaid_invoice_falls_back_to_invoice_amount(tmp_path):
@@ -318,8 +322,7 @@ def _reference(claims: list[dict], ledger: list[dict]) -> dict:
         l = ledger[h]
         paid = cents(l["paid_amount"]) if l["paid_amount"] else 0
         inv = cents(l["invoice_amount"])
-        ref = paid if paid else inv
-        d = totals[h] - ref
+        d = totals[h] - inv
         if not ("2025-01-01" <= l["invoice_date"] <= "2025-12-31"):
             flag = OUT_OF_PERIOD
         elif paid and inv - paid > 100:

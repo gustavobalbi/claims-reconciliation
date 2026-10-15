@@ -30,7 +30,7 @@ import pandas as pd
 # ---------------------------------------------------------------------------
 AUDIT_START = pd.Timestamp("2025-01-01")
 AUDIT_END = pd.Timestamp("2025-12-31")
-TOLERANCE_CENTS = 100  # $1.00, compared against what was actually PAID
+TOLERANCE_CENTS = 100  # $1.00 around the INVOICE amount, as the case specifies
 
 CLEAN_MATCH = "CLEAN_MATCH"
 OUT_OF_PERIOD = "OUT_OF_PERIOD"
@@ -146,10 +146,12 @@ def prepare(claims: pd.DataFrame, ledger: pd.DataFrame) -> tuple[pd.DataFrame, p
     ledger["po_key"] = canonical_po(ledger["po_number"])
     ledger["invoice_c"], _ = to_cents(ledger["invoice_amount"])
     paid_c, paid_bad = to_cents(ledger["paid_amount"])
-    # Unpaid invoice: blank OR recorded as 0.00. Falls back to the invoice amount.
+    # Unpaid invoice: blank OR recorded as 0.00.
     ledger["paid_c"] = paid_c.mask(paid_c == 0)
-    ledger["ref_c"] = ledger["paid_c"].fillna(ledger["invoice_c"])
-    ledger["ref_basis"] = np.where(ledger["paid_c"].isna(), "invoice", "paid")
+    # Flags are judged against the INVOICE amount (case rule). The amount conceded
+    # is capped at what Northgate actually received (the invoice amount if unpaid).
+    ledger["ref_c"] = ledger["invoice_c"]
+    ledger["cap_c"] = ledger["paid_c"].fillna(ledger["invoice_c"])
     ledger["inv_dt"] = to_date(ledger["invoice_date"])
     ledger["partial"] = (
         (ledger["invoice_c"] - ledger["paid_c"] > TOLERANCE_CENTS).fillna(False).astype(bool)
@@ -320,10 +322,10 @@ def reconcile(claims: pd.DataFrame, ledger: pd.DataFrame) -> pd.DataFrame:
     )
 
     # --- Money split: concede + dispute + review == claimed, for every row. -----
-    ref = m["l_ref_c"].fillna(0).astype("int64")
+    cap = m["l_cap_c"].fillna(0).astype("int64")
     st, single = m["status_flag"], m["group_size"] == 1
     to_review = st.isin(REVIEW_FLAGS) | (st.eq(AMOUNT_OVERSTATED) & ~single)
-    concede = np.where(st.eq(CLEAN_MATCH) | (st.eq(AMOUNT_OVERSTATED) & single), np.minimum(claimed, ref), 0)
+    concede = np.where(st.eq(CLEAN_MATCH) | (st.eq(AMOUNT_OVERSTATED) & single), np.minimum(claimed, cap), 0)
     m["claimed_c"] = claimed
     m["concede_c"] = concede
     m["review_c"] = np.where(to_review, claimed, 0)
@@ -337,7 +339,7 @@ def reconcile(claims: pd.DataFrame, ledger: pd.DataFrame) -> pd.DataFrame:
                  "status_flag", "n_inv", "n_po", "candidates", "conflict_inv", "conflict_po", "lid",
                  "claimed_c", "group_size", "group_total_c", "issue_text", "bad_amount", "l_bad",
                  "l_invoice_number", "l_invoice_date", "l_po_key", "l_po_number",
-                 "l_ref_c", "l_ref_basis", "l_invoice_c", "l_paid_c", "l_partial"]
+                 "l_ref_c", "l_invoice_c", "l_paid_c", "l_partial"]
     m["note"] = [_note(r) for r in m[note_cols].itertuples(index=False)]
     return m
 
@@ -390,8 +392,7 @@ def _note(r) -> str:
         if r.l_partial:
             parts.append(f"invoice {_money(r.l_invoice_c)} but only {_money(r.l_paid_c)} paid; "
                          f"part of the deduction may already have been taken")
-        basis = "paid" if r.l_ref_basis == "paid" else "invoiced (unpaid)"
-        txt = f"claimed {_money(r.claimed_c)} vs {basis} {_money(r.l_ref_c)}"
+        txt = f"claimed {_money(r.claimed_c)} vs invoice {_money(r.l_ref_c)}"
         if r.group_size > 1:
             txt += f"; {r.group_size} claims on this invoice total {_money(r.group_total_c)}"
         d = int(r.group_total_c) - int(r.l_ref_c)
@@ -403,6 +404,10 @@ def _note(r) -> str:
             txt += f"; over by {_money(d)}"
         else:
             txt += f"; under by {_money(-d)}"
+        if pd.isna(r.l_paid_c):
+            txt += "; invoice unpaid"
+        elif r.l_paid_c != r.l_invoice_c and not r.l_partial:
+            txt += f"; paid {_money(r.l_paid_c)}, so at most {_money(r.l_paid_c)} can be conceded"
         parts.append(txt)
 
     return "; ".join(parts)

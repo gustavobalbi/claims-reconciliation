@@ -26,7 +26,7 @@ The AI asked 12 questions in three rounds. My answers, and where I overrode the 
 
 | # | Question | AI's first version | My decision | Changed? | Why (mine) |
 |---|---|---|---|---|---|
-| 1 | Tolerance compared against | `invoice_amount` | **`paid_amount`** | Overrode | It is easier to cross-check the claim against the amount that was actually paid. If the difference is within the tolerance, it can be treated as fine. |
+| 1 | Tolerance compared against | `invoice_amount` | **`paid_amount`**, later **reverted to `invoice_amount`** (see Final validation) | Overrode, then reverted | It is easier to cross-check the claim against the amount that was actually paid. If the difference is within the tolerance, it can be treated as fine. *Reverted because the case states the rule explicitly; the idea survives as a cap on the amount conceded.* |
 | 2 | Claim with two problems (out of period and overstated) | Period wins, amount only in the note | **Primary + `secondary_flag`** | Overrode | Better traceability. |
 | 3 | Claim more than $1 *below* the reference | Clean, "partial claim" note | **New flag `AMOUNT_MISMATCH`**, sent to review | Overrode | It can be a critical case, so a human review is appropriate. |
 | 4 | CLM-4408, `INV-1O6OO` | PO fallback, no OCR repair | **Correct it and show the correction in the output**, but only if it cannot be a different invoice | Overrode | I asked whether `INV-1O6OO` could be a different invoice from `INV-10600`. The AI showed it cannot: Northgate issues the numbers and none contain letters. |
@@ -36,7 +36,7 @@ The AI asked 12 questions in three rounds. My answers, and where I overrode the 
 | 8 | CLM-4403 ($412 vs $380) | Dispute all | **Concede $380, dispute only the $32 excess** | Overrode | Where the items do correspond, the agreed amount can be accepted. |
 | 9 | CLM-4404 (ambiguous) | Dispute | Dispute | Kept | **Here I nearly fell into the trap.** My first explanation was "we could discard the invoice that does not correspond", which means dropping INV-10519 because its amount differs and keeping INV-10517. That is exactly the amount-based tie-break the case forbids. The AI flagged the contradiction and I corrected it: an equal amount can be a coincidence or a copy error, and when two invoices are possible only Fernhill can say which one it means. Until it does, the claim is disputed. |
 | 10 | CLM-4401 (100% short-ship, fully paid) | Concede after proof of delivery | Same, later extended to CLM-4408 (see Prompt 7) | Kept | The delivery has to be audited: if it was not actually completed, Fernhill should not be charged for it. |
-| 11 | Value conceded on cent differences (CLM-4405) | Claimed $300.00 | **Ledger value, $299.97** | Overrode | I was unsure at first and asked to revisit it. Final choice: Northgate never gives back more than it actually received, which is consistent with #1. |
+| 11 | Value conceded on cent differences (CLM-4405) | Claimed $300.00 | **Ledger value, $299.97** | Overrode | I was unsure at first and asked to revisit it. Final choice: Northgate never gives back more than it actually received. This still holds after #1 was reverted: the flag is judged on the invoice, the concession is capped at what was paid. |
 | 12 | Row-by-row loop vs large data | Left as is | **Refactor to vectorised matching + Parquet/Excel input + equivalence and scale tests** | Overrode | The system has to be built to scale. |
 
 What the refactor produced: joins on canonical keys instead of `iterrows`; integer cents instead of floats; a randomised equivalence test against a naive row-by-row reference (3 seeds, 3,000 claims each); a scale test (300k claims, about 7 s). The AI's first vectorised run took 14 s; profiling showed the time went into string joins for ambiguity candidates and note formatting, both reduced.
@@ -102,6 +102,38 @@ Instead of only reading the code, the AI ran the script against deliberately bro
 | 19 | Invoice paid short (e.g. $1,000 invoiced, $600 paid) | Compared with the $600; a deduction already taken could be claimed again unnoticed | **New flag `PARTIAL_PAYMENT`, human review** |
 
 The two bugs were fixed regardless. An empty claims file, which also crashed, now produces an empty register. None of these situations occur in the 8 real claims, so the register and the totals did not change. The randomised equivalence test was extended to generate all of them, and 21 new tests were added (48 in total).
+
+## Prompt 11
+
+> "Ready to send?"
+
+The AI re-checked that the zip matched the latest files and that all tests passed from a clean copy.
+
+## Prompt 12
+
+> "Can you create the repo and push it to GitHub?" (Public, named `claims-reconciliation`, with no mention of the hiring company.)
+
+The AI checked every file for mentions of the company before publishing (none found), added `.gitignore` and `requirements.txt`, and pushed. The first push went out with "Claude" as commit author because of a pre-set git identity; the AI caught it on verification and rewrote the single commit under my name, keeping Claude as co-author.
+
+*(Prompts about drafting the reply email are omitted here: they were not part of the work.)*
+
+## Final validation
+
+> "How do you assess our result?"
+
+I asked the AI for a critical review before submitting. It listed what was strong (all traps handled, required test validated by mutation, honest log, my payment-timing observation leading to the CLM-4408 fix) and four risks, starting with its own mistake:
+
+1. **Rule #1 contradicted the brief.** The case says the tolerance is measured against "the independent invoice amount". The AI had presented this as an open choice when the brief had already settled it, and I had switched it to the paid amount. It changed no flag on the case data, but it was a change to a written rule.
+2. **Four flags beyond the five the case defines**, which could read as not following the spec.
+3. **My first prompt** was just the uploaded file, close to the "here are two CSVs, reconcile them" the brief warns about.
+4. **Short justifications** for several decisions where I accepted the AI's recommendation.
+
+> "OK. Tie everything together and push these adjustments to GitHub. Add this interaction to the AI log as a final validation."
+
+What changed:
+- **Rule #1 reverted to the brief:** flags are judged against the invoice amount. My original concern is kept as a separate rule: the amount conceded never exceeds what Northgate was actually paid. On the case data, flags and totals are unchanged (concede $4,004.87, dispute $2,352.78).
+- **README:** new section "Relation to the brief", stating that the five case flags follow the written rules exactly and that the extra flags are a review-only safety layer that does not fire on the case data.
+- Risks 3 and 4 are recorded here as they are; I will answer for them in the interview.
 
 ## My verification against the raw rows
 
