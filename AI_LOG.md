@@ -56,17 +56,23 @@ My reasoning for each decision is in the "Why (mine)" column above.
 
 > "Looking at the raw data I see empty fields, non-standard codes, and one thing caught my attention: some invoices were paid before the claim and others after it. Is that natural or a contradiction?"
 
-The AI answered that payment and claim are separate processes (the retailer usually pays and later deducts from a future remittance), so the order alone is not a contradiction, and the case rules do not use the payment date. It also pointed out that CLM-4408 has the same profile as CLM-4401 (full-invoice short-ship on an invoice already paid) but did not get the same proof-of-delivery caveat in the memo.
+The AI answered that payment and claim are separate processes (the retailer usually pays and later deducts from a future remittance), so the order alone is not a contradiction, and the case rules do not use the payment date. It also pointed out an inconsistency this revealed: CLM-4408 has the same profile as CLM-4401 (full-invoice short-ship on an invoice already paid) but did not get the same proof-of-delivery caveat in the memo. CLM-4402 is similar: a price discrepancy equal to 100% of the invoice. It then asked me two things:
+
+> **AI:** "1. This observation is yours, so it belongs in the 'My verification' section of the log: what you saw, whether you concluded it is a contradiction or not, and why. 2. Do you want me to apply the proof-of-delivery caveat to CLM-4408 as well (and to CLM-4402, for a different reason)?"
 
 ## Prompt 6
 
 > "Put it as item 1. It may be a common dynamic; we would probably need more data to state anything."
 
+I chose the first option: record the observation as item 1 of my verification, without turning it into a rule. My conclusion was that 8 claims are not enough to call it a contradiction.
+
+> **AI:** "The memo still asks for proof of delivery on CLM-4401 but not on CLM-4408, which has the same profile; if asked why they were treated differently, there is no answer today. Two consistent options: ask for proof on both (more cautious), or concede both without a caveat (in line with not creating rules without data)."
+
 ## Prompt 7
 
 > "Proof of delivery for both."
 
-CLM-4408 has the same profile as CLM-4401, so the memo now asks for proof of delivery on both. Flags and totals are unchanged.
+CLM-4408 has the same profile as CLM-4401, so the memo now asks for proof of delivery on both. CLM-4402 was not part of this decision and stays without a caveat. Flags and totals are unchanged.
 
 ## Prompt 8
 
