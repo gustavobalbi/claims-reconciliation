@@ -1,0 +1,9 @@
+claim_id,matched_invoice,status_flag,note
+CLM-4401,INV-10432,CLEAN_MATCH,"claimed $1,180.00 vs paid $1,180.00; exact"
+CLM-4402,0088217,CLEAN_MATCH,invoice_ref '88217' matched ledger '0088217' after normalisation; claimed $642.50 vs paid $642.50; exact
+CLM-4403,INV-10501,AMOUNT_OVERSTATED,claimed $412.00 vs paid $380.00; over by $32.00
+CLM-4404,,AMBIGUOUS_NO_MATCH,"no invoice_ref on claim; PO-5521 is on 2 ledger invoices [INV-10517 ($915.75), INV-10519 ($210.00)]; not resolved by amount"
+CLM-4405,INV-10611,CLEAN_MATCH,claimed $300.00 vs paid $299.97; +$0.03 within $1.00 tolerance
+CLM-4406,INV-09988,OUT_OF_PERIOD,invoice dated 2024-11-02 is outside the 2025 audit window (claim filed 2025-01-10); claimed $875.00 vs paid $875.00; exact
+CLM-4407,,PHANTOM,invoice_ref 'INV-99981' not found in ledger; PO-5599 not found in ledger
+CLM-4408,INV-10600,CLEAN_MATCH,"invoice_ref 'INV-1O6OO' corrected to 'INV-10600' (OCR letters read as digits), confirmed by PO-5530; claimed $1,502.40 vs paid $1,502.40; exact"
